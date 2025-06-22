@@ -74,20 +74,19 @@ document.addEventListener('DOMContentLoaded', function() {
     copyIdBtn.addEventListener('click', copyGameId);
     
     timeOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            timeOptions.forEach(opt => opt.classList.remove('active'));
-            option.classList.add('active');
-            const minutes = parseInt(option.dataset.minutes);
-            gameTime = minutes * 60;
-            whiteTime = gameTime;
-            blackTime = gameTime;
-            updateClocks();
-            
-            // Only update server if we're creating a new game
-            if (!currentGameId) {
-                showNotification(`Time control set to ${minutes} minutes`);
-            }
-        });
+    option.addEventListener('click', () => {
+        timeOptions.forEach(opt => opt.classList.remove('active'));
+        option.classList.add('active');
+        const minutes = parseInt(option.dataset.minutes);
+        gameTime = minutes * 60;
+        whiteTime = gameTime;
+        blackTime = gameTime;
+        updateClocks();
+        
+        if (!currentGameId) {
+        showNotification(`Time control set to ${minutes} minutes`);
+        }
+    });
     });
 
     // Socket.io Event Listeners
@@ -116,7 +115,6 @@ document.addEventListener('DOMContentLoaded', function() {
         showNotification(`Creating ${minutes} minute game...`);
         socket.emit('createGame', { timeControl: gameTime }, (response) => {
             if (response && response.success) {
-                // Handle successful game creation
                 handleRedirect({
                     id: response.gameId,
                     color: response.color,
@@ -125,7 +123,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 showNotification(`Game created! ID: ${response.gameId}`);
             } else {
                 showNotification(response?.error || 'Failed to create game', 'error');
-                // Reset clocks if game creation fails
                 whiteTime = 600;
                 blackTime = 600;
                 updateClocks();
@@ -134,7 +131,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function joinGame() {
-        const gameId = document.getElementById('game-id').value.trim();
+        const gameIdInput = document.getElementById('game-id');
+        const gameId = gameIdInput ? gameIdInput.value.trim() : '';
+        
         if (gameId) {
             showNotification(`Joining game ${gameId}...`);
             socket.emit('joinGame', { id: gameId }, (response) => {
@@ -298,12 +297,10 @@ document.addEventListener('DOMContentLoaded', function() {
         blackTime = gameTime;
         updateClocks();
         
-        // Show game controls
+        // Show/hide UI elements
         document.getElementById('flip-board').style.display = 'inline-flex';
         document.getElementById('resign-btn').style.display = 'inline-flex';
         document.getElementById('offer-draw').style.display = 'inline-flex';
-        
-        // Hide create/join controls
         document.getElementById('create-game').style.display = 'none';
         document.getElementById('join-game').style.display = 'none';
         document.getElementById('game-id').style.display = 'none';
@@ -318,6 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
         badge.style.color = data.color === 'white' ? '#2D3436' : 'white';
         
         board.orientation(data.color);
+        updateTimeControlDisplay();
     }
 
     function handleGameFull(data) {
@@ -337,6 +335,7 @@ document.addEventListener('DOMContentLoaded', function() {
         badge.style.color = data.color === 'white' ? '#2D3436' : 'white';
         
         updateStatus();
+        updateTimeControlDisplay();
         showNotification('Game started! Your turn: ' + (playerColor === 'w' ? 'White' : 'Black'));
     }
 
@@ -377,39 +376,68 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleGameOver(data) {
-        if (data.winner) {
-            showNotification(`${data.winner} wins by ${data.reason}!`, 'success');
-            document.getElementById('status').textContent = `${data.winner} wins by ${data.reason}`;
-        } else {
-            showNotification('Game ended in a draw!', 'info');
-            document.getElementById('status').textContent = 'Game ended in a draw';
-        }
-        stopClock();
+    // Disable piece movement
+    board.draggable = false;
+    
+    if (data.winner) {
+        const winnerText = data.winner === (playerColor === 'w' ? 'White' : 'Black') ? 
+                        'You win!' : `${data.winner} wins!`;
+        showNotification(`${winnerText} (${data.reason})`, 'success');
+        document.getElementById('status').textContent = `${winnerText} by ${data.reason}`;
+    } else {
+        showNotification('Game ended in a draw!', 'info');
+        document.getElementById('status').textContent = 'Game ended in a draw';
     }
-
-    let drawOfferActive = false;
+    
+    stopClock();
+    
+    // Update final board position if provided
+    if (data.finalFen) {
+        game.load(data.finalFen);
+        board.position(data.finalFen);
+    }
+    
+    // Add option to download PGN
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'btn btn-control';
+    downloadBtn.innerHTML = '<i class="fas fa-download"></i> Download Game';
+    downloadBtn.onclick = () => {
+        window.open(`/game/${currentGameId}/pgn`, '_blank');
+    };
+    document.querySelector('.board-controls').appendChild(downloadBtn);
+    }
 
     function handleDrawOffer() {
         if (drawOfferActive) return;
         drawOfferActive = true;
         
-        const modal = document.getElementById('draw-modal');
-        modal.classList.add('show');
+        const modal = document.createElement('div');
+        modal.className = 'modal show';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h3>Draw Offer</h3>
+                <p>Your opponent is offering a draw. Do you accept?</p>
+                <div class="modal-buttons">
+                    <button id="accept-draw" class="btn btn-success">Accept</button>
+                    <button id="decline-draw" class="btn btn-danger">Decline</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
         
         document.getElementById('accept-draw').onclick = function() {
             socket.emit('acceptDraw', { gameId: currentGameId });
-            modal.classList.remove('show');
+            modal.remove();
             drawOfferActive = false;
         };
         
         document.getElementById('decline-draw').onclick = function() {
             socket.emit('declineDraw', { gameId: currentGameId });
-            modal.classList.remove('show');
+            modal.remove();
             showNotification('Draw offer declined', 'info');
             drawOfferActive = false;
         };
     }
-
 
     function handleDrawDeclined() {
         showNotification('Your draw offer was declined', 'info');
@@ -441,47 +469,63 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateMoveHistory() {
-        const moveHistory = document.getElementById('move-history');
-        moveHistory.innerHTML = '';
+    const moveHistory = document.getElementById('move-history');
+    moveHistory.innerHTML = '';
+    
+    const moves = game.history({ verbose: true });
+    const movePairs = [];
+    
+    for (let i = 0; i < moves.length; i += 2) {
+        movePairs.push({
+        white: moves[i],
+        black: moves[i + 1] || null
+        });
+    }
+    
+    movePairs.forEach((pair, index) => {
+        const moveEntry = document.createElement('div');
+        moveEntry.className = 'move-entry';
         
-        const moves = game.history({ verbose: true });
-        const movePairs = [];
+        const moveNumber = document.createElement('span');
+        moveNumber.className = 'move-number';
+        moveNumber.textContent = `${index + 1}.`;
         
-        for (let i = 0; i < moves.length; i += 2) {
-            movePairs.push({
-                white: moves[i],
-                black: moves[i + 1] || null
-            });
+        const whiteMove = document.createElement('span');
+        whiteMove.className = 'move-white';
+        whiteMove.textContent = pair.white.san;
+        whiteMove.onclick = () => highlightMove(pair.white.from, pair.white.to);
+        
+        moveEntry.appendChild(moveNumber);
+        moveEntry.appendChild(whiteMove);
+        
+        if (pair.black) {
+        const blackMove = document.createElement('span');
+        blackMove.className = 'move-black';
+        blackMove.textContent = pair.black.san;
+        blackMove.onclick = () => highlightMove(pair.black.from, pair.black.to);
+        moveEntry.appendChild(blackMove);
         }
         
-        movePairs.forEach((pair, index) => {
-            const moveEntry = document.createElement('div');
-            moveEntry.className = 'move-entry';
-            
-            const moveNumber = document.createElement('span');
-            moveNumber.className = 'move-number';
-            moveNumber.textContent = `${index + 1}.`;
-            
-            const whiteMove = document.createElement('span');
-            whiteMove.className = 'move-white';
-            whiteMove.textContent = pair.white.san;
-            whiteMove.onclick = () => highlightMove(pair.white.from, pair.white.to);
-            
-            moveEntry.appendChild(moveNumber);
-            moveEntry.appendChild(whiteMove);
-            
-            if (pair.black) {
-                const blackMove = document.createElement('span');
-                blackMove.className = 'move-black';
-                blackMove.textContent = pair.black.san;
-                blackMove.onclick = () => highlightMove(pair.black.from, pair.black.to);
-                moveEntry.appendChild(blackMove);
+        moveHistory.appendChild(moveEntry);
+    });
+    
+    moveHistory.scrollTop = moveHistory.scrollHeight;
+    }
+
+    function updateTimeControlDisplay() {
+        const timeOptions = document.querySelectorAll('.time-option');
+        timeOptions.forEach(option => {
+            option.classList.remove('active', 'white', 'black');
+            const minutes = parseInt(option.dataset.minutes);
+            if (minutes * 60 === gameTime) {
+                option.classList.add('active');
+                if (playerColor === 'w') {
+                    option.classList.add('white');
+                } else {
+                    option.classList.add('black');
+                }
             }
-            
-            moveHistory.appendChild(moveEntry);
         });
-        
-        moveHistory.scrollTop = moveHistory.scrollHeight;
     }
 
     function toggleTheme() {
@@ -506,11 +550,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Resign game
     document.getElementById('resign-btn').addEventListener('click', function() {
-        if (currentGameId && confirm('Are you sure you want to resign?')) {
-            socket.emit('resign', { gameId: currentGameId });
-            showNotification('You resigned the game', 'error');
-            document.getElementById('status').textContent = 'Game over - You resigned';
-            stopClock();
+        if (currentGameId) {
+            const modal = document.createElement('div');
+            modal.className = 'modal show';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3>Confirm Resignation</h3>
+                    <p>Are you sure you want to resign? This will end the game.</p>
+                    <div class="modal-buttons">
+                        <button id="confirm-resign" class="btn btn-danger">Resign</button>
+                        <button id="cancel-resign" class="btn">Cancel</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            document.getElementById('confirm-resign').addEventListener('click', function() {
+                socket.emit('resign', { gameId: currentGameId });
+                showNotification('You resigned the game', 'error');
+                document.getElementById('status').textContent = 'Game over - You resigned';
+                stopClock();
+                modal.remove();
+            });
+            
+            document.getElementById('cancel-resign').addEventListener('click', function() {
+                modal.remove();
+            });
         }
     });
 

@@ -101,7 +101,7 @@ io.on('connection', (socket) => {
               return callback({ success: false, error: 'Game is full' });
           }
 
-          const color = 'black';
+          const color = Math.random() < 0.5 ? 'white' : 'black';
           games[gameId].players[socket.id] = color;
           games[gameId].status = 'active';
           
@@ -135,11 +135,19 @@ io.on('connection', (socket) => {
   // Handle chess moves
   socket.on('move', ({ gameId, from, to, promotion }, callback) => {
     try {
-      if (!games[gameId]) {
-        return callback({ success: false, error: 'Game not found' });
+      if (!games[gameId] || games[gameId].status !== 'active' || games[gameId].locked) {
+        return callback({ success: false, error: 'Game not active' });
       }
 
+      // Validate it's the player's turn
+      const playerColor = games[gameId].players[socket.id];
       const game = new Chess(games[gameId].fen);
+      
+      if ((playerColor === 'white' && game.turn() !== 'w') || 
+          (playerColor === 'black' && game.turn() !== 'b')) {
+        return callback({ success: false, error: 'Not your turn' });
+      }
+
       const move = game.move({ 
         from, 
         to, 
@@ -152,10 +160,22 @@ io.on('connection', (socket) => {
 
       updateGameState(gameId, game, move);
       
+      // Record full move history
+      games[gameId].moves = games[gameId].moves || [];
+      games[gameId].moves.push({
+        from,
+        to,
+        promotion,
+        fen: game.fen(),
+        timestamp: Date.now(),
+        player: socket.id
+      });
+      
       io.to(gameId).emit('gameState', { 
         fen: games[gameId].fen,
         lastMove: { from, to },
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        moveHistory: games[gameId].moves
       });
       
       checkGameOver(gameId, game);
@@ -169,17 +189,22 @@ io.on('connection', (socket) => {
 
   // Handle resignations
   socket.on('resign', ({ gameId }) => {
-    if (!games[gameId]) return;
+    if (!games[gameId] || games[gameId].status !== 'active') return;
     
     const playerColor = games[gameId].players[socket.id];
-    const winner = playerColor === 'white' ? 'Black' : 'White';
+    if (!playerColor) return;
     
+    const winner = playerColor === 'white' ? 'Black' : 'White';
     games[gameId].status = 'finished';
     clearInterval(games[gameId].interval);
     
+    // Lock the game state
+    games[gameId].locked = true;
+    
     io.to(gameId).emit('gameOver', {
       winner: winner,
-      reason: 'resignation'
+      reason: 'resignation',
+      finalFen: games[gameId].fen
     });
   });
 
@@ -218,20 +243,24 @@ io.on('connection', (socket) => {
 
   // Handle disconnections
   socket.on('disconnect', () => {
-      showNotification('Disconnected from server', 'error');
-      stopClock();
+      // Remove these lines - they're client-side functions
+      // showNotification('Disconnected from server', 'error');
+      // stopClock();
+      console.log(`Client disconnected: ${socket.id}`);
+      cleanupDisconnectedPlayer(socket.id);
   });
 
   socket.on('reconnect', () => {
-      showNotification('Reconnected to server');
-      if (currentGameId) {
-          // Attempt to rejoin the game
-          socket.emit('joinGame', { id: currentGameId }, (response) => {
-              if (!response.success) {
-                  showNotification('Failed to rejoin game', 'error');
-              }
-          });
-      }
+      // Remove these lines - they're client-side functions
+      // showNotification('Reconnected to server');
+      // if (currentGameId) {
+      //     socket.emit('joinGame', { id: currentGameId }, (response) => {
+      //         if (!response.success) {
+      //             showNotification('Failed to rejoin game', 'error');
+      //         }
+      //     });
+      // }
+      console.log(`Client reconnected: ${socket.id}`);
   });
 
   socket.on('error', (error) => {

@@ -310,13 +310,43 @@
             letter-spacing: 1px;
             margin-bottom: 1rem;
         }
+        .time-option.active.white {
+            background-color: #F5F6FA;
+            color: #2D3436;
+            border: 2px solid #6C5CE7;
+        }
 
+        .time-option.active.black {
+            background-color: #2D3436;
+            color: white;
+            border: 2px solid #6C5CE7;
+        }
+        
         .time-controls {
             display: flex;
             gap: 0.5rem;
             flex-wrap: wrap;
             justify-content: center;
         }
+
+        .time-control-card {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1.5rem;
+            background-color: var(--bg-secondary);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+        
+    @media (max-width: 768px) {
+        .time-control-card {
+            order: -1; /* Move time controls to top on small screens */
+        }
+        .clocks {
+            flex-direction: column;
+        }
+    }
 
         .time-option {
             padding: 0.5rem 1rem;
@@ -397,19 +427,33 @@
 
         .notification {
             position: fixed;
-            bottom: 2rem;
+            bottom: 1rem;
             left: 50%;
             transform: translateX(-50%);
             background-color: var(--dark);
             color: white;
-            padding: 1rem 2rem;
+            padding: 1rem 1.5rem;
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
             opacity: 0;
             transition: opacity 0.3s ease;
             z-index: 1000;
-            max-width: 90%;
+            max-width: calc(100% - 2rem);
             text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .notification.success {
+            background-color: var(--success);
+        }
+
+        .notification.error {
+            background-color: var(--error);
+        }
+
+        .notification.warning {
+            background-color: var(--warning);
+            color: var(--dark);
         }
 
         .notification.show {
@@ -479,29 +523,39 @@
 
         /* Modal */
         .modal {
-            display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.7);
             z-index: 2000;
+            display: flex;
             justify-content: center;
             align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
         }
 
         .modal.show {
-            display: flex;
+            opacity: 1;
+            pointer-events: all;
         }
 
         .modal-content {
             background-color: var(--bg-secondary);
             padding: 2rem;
             border-radius: var(--border-radius);
+            width: 90%;
             max-width: 400px;
-            width: 100%;
             box-shadow: var(--shadow);
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal.show .modal-content {
+            transform: translateY(0);
         }
 
         .modal-buttons {
@@ -544,11 +598,21 @@
             .header-container {
                 padding: 0 1rem;
             }
-            
             .game-container {
+                grid-template-rows: auto auto 1fr;
                 padding: 1rem;
             }
+                .chess-area {
+                order: 2;
+            }
+    
+            .time-control-card {
+                order: 1;
+            }
             
+            .player-info-card {
+                order: 3;
+            }
             .join-container {
                 flex-direction: column;
             }

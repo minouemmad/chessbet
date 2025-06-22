@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChessBet | Premium Chess Experience</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-wrapper">
+        <header class="app-header">
+            <div class="header-container">
+                <div class="logo">
+                    <i class="fas fa-chess-king"></i>
+                    <h1>Chess<span>Bet</span></h1>
+                </div>
+                <div class="header-controls">
+                    <button id="theme-toggle" class="btn btn-theme">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="game-container">
+            <div class="chess-area">
+                <div id="board"></div>
+                <div class="board-controls">
+                    <button id="flip-board" class="btn btn-control">
+                        <i class="fas fa-sync-alt"></i> Flip Board
+                    </button>
+                    <button id="resign-btn" class="btn btn-control btn-danger">
+                        <i class="fas fa-flag"></i> Resign
+                    </button>
+                    <button id="offer-draw" class="btn btn-control">
+                        <i class="fas fa-handshake"></i> Offer Draw
+                    </button>
+                </div>
+            </div>
+
+            <div class="game-info-panel">
+                <div class="panel-card game-controls">
+                    <div class="game-id-container">
+                        <div class="game-id-display" id="game-id-display">
+                            <i class="fas fa-key"></i>
+                            <div>
+                                <span>GAME CODE</span>
+                                <strong id="current-game-id">-----</strong>
+                            </div>
+                            <button id="copy-id" class="copy-btn">
+                                <i class="far fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button id="create-game" class="btn btn-create">
+                            <i class="fas fa-plus"></i> New Game
+                        </button>
+                        
+                        <div class="join-container">
+                            <input type="text" id="game-id" placeholder="Enter game code">
+                            <button id="join-game" class="btn btn-join">
+                                <i class="fas fa-sign-in-alt"></i> Join
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-card time-control-card">
+                    <h3 class="panel-title">TIME CONTROL</h3>
+                    <div class="time-controls">
+                        <button class="time-option active" data-minutes="1">1+0</button>
+                        <button class="time-option" data-minutes="3">3+0</button>
+                        <button class="time-option" data-minutes="5">5+0</button>
+                        <button class="time-option" data-minutes="10">10+0</button>
+                        <button class="time-option" data-minutes="15">15+10</button>
+                    </div>
+                </div>
+
+                <div class="panel-card player-info-card">
+                    <div class="player-info">
+                        <div class="player-badge" id="player-color-badge">
+                            <span id="player-color">WAITING</span>
+                        </div>
+                        <div class="clocks">
+                            <div class="clock white-clock" id="white-clock">10:00</div>
+                            <div class="clock black-clock" id="black-clock">10:00</div>
+                        </div>
+                    </div>
+                    <div class="game-status" id="status">Create or join a game to begin</div>
+                </div>
+
+                <div class="panel-card move-history">
+                    <h3 class="panel-title">MOVE HISTORY</h3>
+                    <div class="moves-container" id="move-history"></div>
+                </div>
+            </div>
+        </main>
+
+        <div class="notification" id="notification">
+            <span id="notification-message"></span>
+        </div>
+
+        <div class="modal" id="draw-modal">
+            <div class="modal-content">
+                <h3>Draw Offer</h3>
+                <p>Your opponent is offering a draw. Do you accept?</p>
+                <div class="modal-buttons">
+                    <button id="accept-draw" class="btn btn-success">Accept</button>
+                    <button id="decline-draw" class="btn btn-danger">Decline</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.2/chess.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

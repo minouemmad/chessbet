@@ -24,23 +24,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize chessboard
     function initChessboard() {
-        board = Chessboard('board', {
-            draggable: true,
-            position: 'start',
-            pieceTheme: 'https://lichess1.org/assets/pieces/merida/{piece}.png',
-            onDragStart: onDragStart,
-            onDrop: onDrop,
-            onSnapEnd: onSnapEnd,
-            showNotation: true,
-            sparePieces: false,
-            appearSpeed: 100,
-            moveSpeed: 200,
-            snapbackSpeed: 100
-        });
-        
-        setTimeout(() => {
-            board.position('start');
-        }, 100);
+        try {
+            board = Chessboard('board', {
+                draggable: true,
+                position: 'start',
+                pieceTheme: '//lichess1.org/assets/pieces/merida/{piece}.png',
+                onDragStart: onDragStart,
+                onDrop: onDrop,
+                onSnapEnd: onSnapEnd,
+                showNotation: true,
+                sparePieces: false,
+                appearSpeed: 100,
+                moveSpeed: 200,
+                snapbackSpeed: 100,
+                onError: function(err) {
+                    console.error('Chessboard error:', err);
+                    showNotification('Chessboard error: ' + err, 'error');
+                }
+            });
+            
+            setTimeout(() => {
+                board.position('start');
+            }, 100);
+        } catch (err) {
+            console.error('Failed to initialize chessboard:', err);
+            showNotification('Failed to initialize chessboard', 'error');
+        }
     }
 
     // Initialize game
@@ -102,11 +111,19 @@ document.addEventListener('DOMContentLoaded', function() {
         gameTime = minutes * 60;
         whiteTime = gameTime;
         blackTime = gameTime;
-        updateClocks(); // Update clocks immediately
+        updateClocks();
         
         showNotification(`Creating ${minutes} minute game...`);
         socket.emit('createGame', { timeControl: gameTime }, (response) => {
-            if (!response || !response.success) {
+            if (response && response.success) {
+                // Handle successful game creation
+                handleRedirect({
+                    id: response.gameId,
+                    color: response.color,
+                    timeControl: response.timeControl
+                });
+                showNotification(`Game created! ID: ${response.gameId}`);
+            } else {
                 showNotification(response?.error || 'Failed to create game', 'error');
                 // Reset clocks if game creation fails
                 whiteTime = 600;
@@ -121,7 +138,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (gameId) {
             showNotification(`Joining game ${gameId}...`);
             socket.emit('joinGame', { id: gameId }, (response) => {
-                if (!response || !response.success) {
+                if (response && response.success) {
+                    handleRedirect({
+                        id: gameId,
+                        color: response.color,
+                        timeControl: response.timeControl
+                    });
+                    showNotification(`Joined game ${gameId} as ${response.color}`);
+                } else {
                     showNotification(response?.error || 'Failed to join game', 'error');
                 }
             });
@@ -287,14 +311,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update player info
         document.getElementById('player-color').textContent = data.color.toUpperCase();
         document.getElementById('current-game-id').textContent = currentGameId;
-        document.getElementById('status').textContent = 'Waiting for opponent to join...';
+        document.getElementById('status').textContent = playerColor === 'w' ? 'Your turn (White)' : 'Waiting for opponent...';
         
         const badge = document.getElementById('player-color-badge');
         badge.style.backgroundColor = data.color === 'white' ? 'white' : '#2D3436';
         badge.style.color = data.color === 'white' ? '#2D3436' : 'white';
         
         board.orientation(data.color);
-        showNotification(`Game created! Your ID: ${currentGameId}. Waiting for opponent...`);
     }
 
     function handleGameFull(data) {

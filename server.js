@@ -13,8 +13,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Configure Socket.IO
 const io = socketIo(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
+    origin: "http://localhost:3000", // Be specific for security
+    methods: ["GET", "POST"],
+    credentials: true
   },
   pingTimeout: 60000,
   pingInterval: 25000
@@ -69,11 +70,13 @@ io.on('connection', (socket) => {
               status: 'waiting'
           };
           
+          console.log(`Game created: ${gameId} with players:`, games[gameId].players);
+          
           socket.join(gameId);
           
           callback({ 
               success: true,
-              gameId,
+              gameId: gameId,  
               color: 'white',
               timeControl: timeControl
           });
@@ -84,42 +87,49 @@ io.on('connection', (socket) => {
 
   // Join existing game
   socket.on('joinGame', ({ gameId }, callback) => {
-    try {
-      if (!games[gameId]) {
-        return callback({ success: false, error: 'Game not found' });
-      }
+      try {
+          console.log(`Attempting to join game: ${gameId}`);
+          console.log(`Available games:`, Object.keys(games));
+          
+          if (!games[gameId]) {
+              console.log(`Game ${gameId} not found in games object`);
+              return callback({ success: false, error: 'Game not found' });
+          }
 
-      if (Object.keys(games[gameId].players).length >= 2) {
-        return callback({ success: false, error: 'Game is full' });
-      }
+          if (Object.keys(games[gameId].players).length >= 2) {
+              console.log(`Game ${gameId} is full`);
+              return callback({ success: false, error: 'Game is full' });
+          }
 
-      const color = 'black';
-      games[gameId].players[socket.id] = color;
-      games[gameId].status = 'active';
-      
-      socket.join(gameId);
-      
-      callback({ 
-        success: true,
-        gameId,
-        color,
-        timeControl: games[gameId].timeControl
-      });
-      
-      io.to(gameId).emit('gameFull', { 
-        color,
-        state: { 
-          fen: games[gameId].fen 
-        },
-        timeControl: games[gameId].timeControl
-      });
-      
-      startGameTimer(gameId);
-      console.log(`Player joined game: ${gameId}`);
-    } catch (error) {
-      console.error('Game join error:', error);
-      callback({ success: false, error: 'Failed to join game' });
-    }
+          const color = 'black';
+          games[gameId].players[socket.id] = color;
+          games[gameId].status = 'active';
+          
+          console.log(`Player ${socket.id} joined game ${gameId} as ${color}`);
+          
+          socket.join(gameId);
+          
+          callback({ 
+              success: true,
+              gameId: gameId, 
+              color: color,
+              timeControl: games[gameId].timeControl
+          });
+          
+          io.to(gameId).emit('gameFull', { 
+              color: color,
+              state: { 
+                  fen: games[gameId].fen 
+              },
+              timeControl: games[gameId].timeControl
+          });
+          
+          startGameTimer(gameId);
+          console.log(`Player joined game: ${gameId}`);
+      } catch (error) {
+          console.error('Game join error:', error);
+          callback({ success: false, error: 'Failed to join game' });
+      }
   });
 
   // Handle chess moves
@@ -208,8 +218,20 @@ io.on('connection', (socket) => {
 
   // Handle disconnections
   socket.on('disconnect', () => {
-    console.log(`Client disconnected: ${socket.id}`);
-    cleanupDisconnectedPlayer(socket.id);
+      showNotification('Disconnected from server', 'error');
+      stopClock();
+  });
+
+  socket.on('reconnect', () => {
+      showNotification('Reconnected to server');
+      if (currentGameId) {
+          // Attempt to rejoin the game
+          socket.emit('joinGame', { id: currentGameId }, (response) => {
+              if (!response.success) {
+                  showNotification('Failed to rejoin game', 'error');
+              }
+          });
+      }
   });
 
   socket.on('error', (error) => {

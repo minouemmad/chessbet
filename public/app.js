@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
             board = Chessboard('board', {
                 draggable: true,
                 position: 'start',
-                pieceTheme: '//lichess1.org/assets/pieces/merida/{piece}.png',
+                pieceTheme: '/pieces/merida/{piece}.svg',
                 onDragStart: onDragStart,
                 onDrop: onDrop,
                 onSnapEnd: onSnapEnd,

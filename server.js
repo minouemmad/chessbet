@@ -10,11 +10,6 @@ const server = http.createServer(app);
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// All other routes should serve index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 // Configure Socket.IO
 const io = socketIo(server, {
   cors: {
@@ -30,39 +25,61 @@ const games = {};
 
 // Socket.IO connection handler
 io.on('connection', (socket) => {
-  console.log(`Client connected: ${socket.id}`);
+    console.log(`Client connected: ${socket.id}`);
+    
+    // Add error handler for all socket events
+    const wrap = (handler) => {
+        return (...args) => {
+            try {
+                const callback = args[args.length - 1];
+                if (typeof callback === 'function') {
+                    return handler(...args);
+                } else {
+                    return handler(...args, (response) => {
+                        if (!response.success) {
+                            socket.emit('error', response.error);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Socket handler error:', error);
+                socket.emit('error', error.message);
+            }
+        };
+    };
 
   // Create new game
   socket.on('createGame', ({ timeControl }, callback) => {
-    try {
-      const gameId = generateGameId();
-      const gameInstance = new Chess();
-      
-      games[gameId] = {
-        players: { [socket.id]: 'white' },
-        fen: gameInstance.fen(),
-        timeControl: timeControl || 600,
-        whiteTime: timeControl || 600,
-        blackTime: timeControl || 600,
-        lastUpdate: Date.now(),
-        currentTurn: 'w',
-        status: 'waiting'
-      };
-      
-      socket.join(gameId);
-      
-      callback({ 
-        success: true,
-        gameId,
-        color: 'white',
-        timeControl: timeControl || 600
-      });
-      
-      console.log(`Game created: ${gameId}`);
-    } catch (error) {
-      console.error('Game creation error:', error);
-      callback({ success: false, error: 'Failed to create game' });
-    }
+      try {
+          if (!timeControl || timeControl < 60) {
+              return callback({ success: false, error: 'Invalid time control' });
+          }
+          
+          const gameId = generateGameId();
+          const gameInstance = new Chess();
+          
+          games[gameId] = {
+              players: { [socket.id]: 'white' },
+              fen: gameInstance.fen(),
+              timeControl: timeControl,
+              whiteTime: timeControl,
+              blackTime: timeControl,
+              lastUpdate: Date.now(),
+              currentTurn: 'w',
+              status: 'waiting'
+          };
+          
+          socket.join(gameId);
+          
+          callback({ 
+              success: true,
+              gameId,
+              color: 'white',
+              timeControl: timeControl
+          });
+      } catch (error) {
+          callback({ success: false, error: error.message });
+      }
   });
 
   // Join existing game
@@ -157,14 +174,14 @@ io.on('connection', (socket) => {
   });
 
   // Handle draw offers
-  socket.on('offerDraw', ({ gameId }) => {
-    if (!games[gameId]) return;
-    
-    const opponentId = Object.keys(games[gameId].players).find(id => id !== socket.id);
-    if (opponentId) {
-      io.to(opponentId).emit('drawOffered');
-    }
-  });
+    socket.on('offerDraw', ({ gameId }) => {
+        if (!games[gameId] || games[gameId].status !== 'active') return;
+        
+        const opponentId = Object.keys(games[gameId].players).find(id => id !== socket.id);
+        if (opponentId) {
+            io.to(opponentId).emit('drawOffered');
+        }
+    });
 
   // Handle draw acceptances
   socket.on('acceptDraw', ({ gameId }) => {
@@ -272,23 +289,23 @@ function startGameTimer(gameId) {
 }
 
 function cleanupDisconnectedPlayer(socketId) {
-  for (const gameId in games) {
-    if (games[gameId].players[socketId]) {
-      const playerColor = games[gameId].players[socketId];
-      delete games[gameId].players[socketId];
-      
-      if (Object.keys(games[gameId].players).length === 0) {
-        clearInterval(games[gameId].interval);
-        delete games[gameId];
-        console.log(`Game ${gameId} removed (no players)`);
-      } else {
-        games[gameId].status = 'abandoned';
-        clearInterval(games[gameId].interval);
-        io.to(gameId).emit('opponentLeft', { playerColor });
-        console.log(`Player ${socketId} left game ${gameId}`);
-      }
+    for (const gameId in games) {
+        if (games[gameId].players[socketId]) {
+            const playerColor = games[gameId].players[socketId];
+            delete games[gameId].players[socketId];
+            
+            if (Object.keys(games[gameId].players).length === 0) {
+                clearInterval(games[gameId].interval);
+                delete games[gameId];
+                console.log(`Game ${gameId} removed (no players)`);
+            } else {
+                games[gameId].status = 'abandoned';
+                clearInterval(games[gameId].interval);
+                io.to(gameId).emit('opponentLeft', { playerColor });
+                console.log(`Player ${socketId} left game ${gameId}`);
+            }
+        }
     }
-  }
 }
 
 function generateGameId() {

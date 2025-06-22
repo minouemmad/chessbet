@@ -73,6 +73,11 @@ document.addEventListener('DOMContentLoaded', function() {
             whiteTime = gameTime;
             blackTime = gameTime;
             updateClocks();
+            
+            // Only update server if we're creating a new game
+            if (!currentGameId) {
+                showNotification(`Time control set to ${minutes} minutes`);
+            }
         });
     });
 
@@ -93,15 +98,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Game Functions
     function createGame() {
-        showNotification('Creating private game...');
-        socket.emit('createGame', { timeControl: gameTime });
+        const minutes = parseInt(document.querySelector('.time-option.active').dataset.minutes);
+        gameTime = minutes * 60;
+        whiteTime = gameTime;
+        blackTime = gameTime;
+        updateClocks(); // Update clocks immediately
+        
+        showNotification(`Creating ${minutes} minute game...`);
+        socket.emit('createGame', { timeControl: gameTime }, (response) => {
+            if (!response || !response.success) {
+                showNotification(response?.error || 'Failed to create game', 'error');
+                // Reset clocks if game creation fails
+                whiteTime = 600;
+                blackTime = 600;
+                updateClocks();
+            }
+        });
     }
 
     function joinGame() {
         const gameId = document.getElementById('game-id').value.trim();
         if (gameId) {
             showNotification(`Joining game ${gameId}...`);
-            socket.emit('joinGame', { id: gameId });
+            socket.emit('joinGame', { id: gameId }, (response) => {
+                if (!response || !response.success) {
+                    showNotification(response?.error || 'Failed to join game', 'error');
+                }
+            });
         } else {
             showNotification('Please enter a Game ID', 'error');
         }
@@ -251,15 +274,27 @@ document.addEventListener('DOMContentLoaded', function() {
         blackTime = gameTime;
         updateClocks();
         
+        // Show game controls
+        document.getElementById('flip-board').style.display = 'inline-flex';
+        document.getElementById('resign-btn').style.display = 'inline-flex';
+        document.getElementById('offer-draw').style.display = 'inline-flex';
+        
+        // Hide create/join controls
+        document.getElementById('create-game').style.display = 'none';
+        document.getElementById('join-game').style.display = 'none';
+        document.getElementById('game-id').style.display = 'none';
+        
+        // Update player info
         document.getElementById('player-color').textContent = data.color.toUpperCase();
         document.getElementById('current-game-id').textContent = currentGameId;
+        document.getElementById('status').textContent = 'Waiting for opponent to join...';
         
         const badge = document.getElementById('player-color-badge');
         badge.style.backgroundColor = data.color === 'white' ? 'white' : '#2D3436';
         badge.style.color = data.color === 'white' ? '#2D3436' : 'white';
         
         board.orientation(data.color);
-        showNotification(`Game created! Your ID: ${currentGameId}`);
+        showNotification(`Game created! Your ID: ${currentGameId}. Waiting for opponent...`);
     }
 
     function handleGameFull(data) {
@@ -329,21 +364,29 @@ document.addEventListener('DOMContentLoaded', function() {
         stopClock();
     }
 
+    let drawOfferActive = false;
+
     function handleDrawOffer() {
+        if (drawOfferActive) return;
+        drawOfferActive = true;
+        
         const modal = document.getElementById('draw-modal');
         modal.classList.add('show');
         
         document.getElementById('accept-draw').onclick = function() {
             socket.emit('acceptDraw', { gameId: currentGameId });
             modal.classList.remove('show');
+            drawOfferActive = false;
         };
         
         document.getElementById('decline-draw').onclick = function() {
             socket.emit('declineDraw', { gameId: currentGameId });
             modal.classList.remove('show');
             showNotification('Draw offer declined', 'info');
+            drawOfferActive = false;
         };
     }
+
 
     function handleDrawDeclined() {
         showNotification('Your draw offer was declined', 'info');

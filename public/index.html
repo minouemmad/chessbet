@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChessBet| Premium Chess Experience</title>
+    <title>ChessBet | Premium Chess Experience</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
@@ -43,14 +43,6 @@
             --bg-secondary: #2D3436;
         }
 
-        [data-theme="dark"] .game-id-display strong {
-            color: var(--accent);
-        }
-    
-        [data-theme="dark"] .panel-card {
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -74,8 +66,11 @@
         .app-header {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
-            padding: 1.5rem 0;
+            padding: 1rem 0;
             box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
         .header-container {
@@ -99,7 +94,7 @@
         }
 
         .logo h1 {
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: 700;
         }
 
@@ -111,6 +106,7 @@
         .header-controls {
             display: flex;
             gap: 1rem;
+            align-items: center;
         }
 
         .game-container {
@@ -123,22 +119,30 @@
             width: 100%;
             flex-grow: 1;
         }
-        #flip-board, #resign-btn, #offer-draw {
-            display: none;
-        }
+        
         .chess-area {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
         }
 
+
         #board {
-            width: 600px;
-            height: 600px;
-            border-radius: var(--border-radius);
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            background-color: var(--bg-secondary);
+        width: 100%;
+        max-width: 100%;
+        aspect-ratio: 1/1;
+        min-width: 300px;
+        min-height: 300px;
+        }
+
+        /* Adjust piece size */
+        #board img {
+        width: 90% !important;
+        height: 100% !important;
         }
 
         .board-controls {
@@ -182,11 +186,6 @@
             transition: var(--transition);
         }
 
-        .game-id-display:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
         .game-id-display span {
             font-size: 0.75rem;
             font-weight: 600;
@@ -202,26 +201,6 @@
             letter-spacing: 1px;
         }
 
-        .copy-btn {
-            margin-left: auto;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            width: 36px;
-            height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .copy-btn:hover {
-            background-color: var(--primary-dark);
-            transform: translateY(-2px);
-        }
-
         .btn {
             padding: 1rem 1.5rem;
             border: none;
@@ -233,6 +212,16 @@
             gap: 0.5rem;
             transition: var(--transition);
             font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
         }
 
         .btn-create {
@@ -310,44 +299,7 @@
             letter-spacing: 1px;
             margin-bottom: 1rem;
         }
-        .time-option.active.white {
-            background-color: #F5F6FA;
-            color: #2D3436;
-            border: 2px solid #6C5CE7;
-        }
-
-        .time-option.active.black {
-            background-color: #2D3436;
-            color: white;
-            border: 2px solid #6C5CE7;
-        }
         
-        .time-controls {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .time-control-card {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            padding: 1.5rem;
-            background-color: var(--bg-secondary);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-        }
-        
-    @media (max-width: 768px) {
-        .time-control-card {
-            order: -1; /* Move time controls to top on small screens */
-        }
-        .clocks {
-            flex-direction: column;
-        }
-    }
-
         .time-option {
             padding: 0.5rem 1rem;
             background-color: var(--light);
@@ -367,7 +319,24 @@
             background-color: var(--primary);
             color: white;
         }
+        
+        .time-controls {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
 
+        .time-control-card {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1.5rem;
+            background-color: var(--bg-secondary);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+        
         .player-info-card {
             display: flex;
             flex-direction: column;
@@ -424,7 +393,28 @@
             text-align: center;
             font-weight: 500;
         }
+        
+        .profile-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
 
+        .profile-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .rating-up {
+            color: var(--success);
+            margin-left: 0.5rem;
+        }
+
+        .rating-down {
+            color: var(--error);
+            margin-left: 0.5rem;
+        }
+        
         .notification {
             position: fixed;
             bottom: 1rem;
@@ -472,6 +462,7 @@
         .highlight-move {
             background-color: rgba(253, 203, 110, 0.8) !important;
         }
+        
         .btn-theme {
             background-color: transparent;
             color: white;
@@ -483,6 +474,21 @@
 
         .btn-theme:hover {
             transform: rotate(30deg);
+        }
+        
+        .btn-logout {
+            background-color: transparent;
+            color: white;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-logout:hover {
+            color: var(--accent);
         }
 
         /* Move history */
@@ -580,17 +586,248 @@
             color: white;
         }
 
+        /* Auth Modal */
+        .auth-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .auth-modal.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            margin-right: 1rem;
+        }
+
+        .connection-status i {
+            color: #F39C12;
+            font-size: 0.6rem;
+        }
+
+        .connection-status.connected i {
+            color: #00B894;
+        }
+
+        .connection-status.disconnected i {
+            color: #D63031;
+        }
+
+        .btn.loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .auth-content {
+            background-color: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 400px;
+            box-shadow: var(--shadow);
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .close-modal:hover {
+            color: var(--error);
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-tab {
+            padding: 0.5rem 1rem;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .auth-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .auth-form {
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .auth-form.active {
+            display: flex;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .form-group input {
+            padding: 0.75rem;
+            border: 1px solid #DFE6E9;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.2);
+        }
+
+        .form-footer {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .btn-link {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 0.5rem 0;
+            text-align: center;
+            text-decoration: underline;
+            transition: var(--transition);
+        }
+
+        .btn-link:hover {
+            color: var(--primary-dark);
+            text-decoration: none;
+        }
+
+        .phone-input-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .phone-input-group select {
+            flex: 0 0 100px;
+            padding: 0.75rem;
+            border: 1px solid #DFE6E9;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        .phone-input-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.2);
+        }
+
+        .phone-input-group input {
+            flex: 1;
+        }
+
+        .password-strength {
+            display: flex;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
+            align-items: center;
+        }
+
+        .strength-bar {
+            height: 4px;
+            background-color: #DFE6E9;
+            border-radius: 2px;
+            flex: 1;
+            transition: var(--transition);
+        }
+
+        .strength-text {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-left: 0.5rem;
+        }
+
+        .timer {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-align: center;
+            display: none;
+        }
+
         /* Responsive design */
+        @media (min-width: 1201px) {
+            #board {
+                width: 600px;
+                height: 600px;
+            }
+        }
+
         @media (max-width: 1200px) {
             .game-container {
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr 1fr;
             }
             
             #board {
                 width: 100%;
-                max-width: 600px;
+                max-width: 500px;
                 height: auto;
                 aspect-ratio: 1/1;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .game-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto;
+            }
+            
+            .chess-area {
+                order: 1;
+            }
+            
+            .game-info-panel {
+                order: 2;
             }
         }
 
@@ -598,21 +835,29 @@
             .header-container {
                 padding: 0 1rem;
             }
-            .game-container {
-                grid-template-rows: auto auto 1fr;
-                padding: 1rem;
-            }
-                .chess-area {
-                order: 2;
-            }
-    
-            .time-control-card {
-                order: 1;
+            
+            .logo h1 {
+                font-size: 1.25rem;
             }
             
-            .player-info-card {
-                order: 3;
+            .game-container {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            } 
+              .game-info-panel {
+                order: 2;
+                width: 100%;
+                min-width: auto;
             }
+            
+            .chess-area {
+                order: 1;
+            }
+                        
+            #board {
+                max-width: 100%;
+            }
+            
             .join-container {
                 flex-direction: column;
             }
@@ -630,11 +875,67 @@
             .clock {
                 flex-grow: 1;
             }
+            
+            .time-control-card {
+                order: -1;
+            }
+
+            .auth-content {
+                padding: 1rem;
+                width: 95%;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .board-controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn-control {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .phone-input-group {
+                flex-direction: column;
+            }
+            
+            .phone-input-group select {
+                width: 100%;
+            }
+        }
+        /* Fix notation alignment */
+            .notation {
+            font-size: 0.8em;
+            z-index: 10;
+            position: relative;
+            }
+
+        /* Debug overlay */
+        .debug-overlay {
+            position: relative;
+        }
+
+        .debug-overlay::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 0, 0, 0.1);
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* Hidden elements */
+        [hidden] {
+            display: none !important;
         }
     </style>
 </head>
 <body>
-    <!-- Rest of your HTML content remains exactly the same -->
     <div class="app-wrapper">
         <header class="app-header">
             <div class="header-container">
@@ -643,8 +944,15 @@
                     <h1>Chess<span>Bet</span></h1>
                 </div>
                 <div class="header-controls">
+                    <div id="connection-status" class="connection-status">
+                        <i class="fas fa-circle"></i>
+                        <span>Connecting...</span>
+                    </div>
                     <button id="theme-toggle" class="btn btn-theme">
                         <i class="fas fa-moon"></i>
+                    </button>
+                    <button id="logout-btn" class="btn-logout">
+                        <i class="fas fa-sign-out-alt"></i> Logout
                     </button>
                 </div>
             </div>
@@ -654,13 +962,13 @@
             <div class="chess-area">
                 <div id="board"></div>
                 <div class="board-controls">
-                    <button id="flip-board" class="btn btn-control">
+                    <button id="flip-board" class="btn btn-control" hidden>
                         <i class="fas fa-sync-alt"></i> Flip Board
                     </button>
-                    <button id="resign-btn" class="btn btn-control btn-danger">
+                    <button id="resign-btn" class="btn btn-control btn-danger" hidden>
                         <i class="fas fa-flag"></i> Resign
                     </button>
-                    <button id="offer-draw" class="btn btn-control">
+                    <button id="offer-draw" class="btn btn-control" hidden>
                         <i class="fas fa-handshake"></i> Offer Draw
                     </button>
                 </div>
@@ -675,7 +983,7 @@
                                 <span>GAME CODE</span>
                                 <strong id="current-game-id">-----</strong>
                             </div>
-                            <button id="copy-id" class="copy-btn">
+                            <button id="copy-id" class="btn btn-control">
                                 <i class="far fa-copy"></i>
                             </button>
                         </div>
@@ -692,6 +1000,12 @@
                                 <i class="fas fa-sign-in-alt"></i> Join
                             </button>
                         </div>
+                        <button id="join-matchmaking" class="btn btn-create">
+                            <i class="fas fa-chess-knight"></i> Find Opponent
+                        </button>
+                        <button id="leave-matchmaking" class="btn btn-danger" hidden>
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
                     </div>
                 </div>
 
@@ -729,14 +1043,88 @@
         <div class="notification" id="notification">
             <span id="notification-message"></span>
         </div>
+    </div>
 
-        <div class="modal" id="draw-modal">
-            <div class="modal-content">
-                <h3>Draw Offer</h3>
-                <p>Your opponent is offering a draw. Do you accept?</p>
-                <div class="modal-buttons">
-                    <button id="accept-draw" class="btn btn-success">Accept</button>
-                    <button id="decline-draw" class="btn btn-danger">Decline</button>
+    <div class="auth-modal">
+        <div class="auth-content">
+            <button class="close-modal" id="close-auth-modal">&times;</button>
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Login</button>
+                <button class="auth-tab" data-tab="signup">Sign Up</button>
+            </div>
+            
+            <div class="auth-form active" id="login-form">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" placeholder="Enter your email" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password">
+                </div>
+                <div class="form-footer">
+                    <button id="login-btn" class="btn btn-primary">Login</button>
+                    <button id="forgot-password" class="btn btn-link">Forgot Password?</button>
+                </div>
+            </div>
+            
+            <div class="auth-form" id="signup-form">
+                <div class="form-group">
+                    <label for="signup-email">Email</label>
+                    <input type="email" id="signup-email" placeholder="Enter your email" autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="signup-phone">Phone Number</label>
+                    <div class="phone-input-group">
+                        <select id="signup-country" class="country-code">
+                            <option value="1">+1 (US)</option>
+                            <option value="44">+44 (UK)</option>
+                            <option value="61">+61 (AU)</option>
+                            <option value="33">+33 (FR)</option>
+                            <option value="49">+49 (DE)</option>
+                        </select>
+                        <input type="tel" id="signup-phone" placeholder="Phone number" autocomplete="tel">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="signup-username">Username</label>
+                    <input type="text" id="signup-username" placeholder="Choose a username" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" placeholder="Create a password" autocomplete="new-password">
+                    <div class="password-strength">
+                        <span class="strength-bar"></span>
+                        <span class="strength-bar"></span>
+                        <span class="strength-bar"></span>
+                        <span class="strength-text">Password strength</span>
+                    </div>
+                </div>
+                <button id="signup-btn" class="btn btn-primary">Sign Up</button>
+            </div>
+            
+            <div class="auth-form" id="verify-form">
+                <p>We've sent a 6-digit verification code to your phone. Please enter it below:</p>
+                <div class="form-group">
+                    <label for="verify-code">Verification Code</label>
+                    <input type="text" id="verify-code" placeholder="Enter 6-digit code" maxlength="6" pattern="\d{6}">
+                </div>
+                <button id="verify-btn" class="btn btn-primary">Verify</button>
+                <div class="form-footer">
+                    <button id="resend-code" class="btn btn-link">Resend Code</button>
+                    <span id="resend-timer" class="timer">Resend available in 30s</span>
+                </div>
+            </div>
+            
+            <div class="auth-form" id="reset-form">
+                <p>Enter your email to receive password reset instructions:</p>
+                <div class="form-group">
+                    <label for="reset-email">Email</label>
+                    <input type="email" id="reset-email" placeholder="Enter your email">
+                </div>
+                <button id="reset-btn" class="btn btn-primary">Send Reset Link</button>
+                <div class="form-footer">
+                    <button id="back-to-login" class="btn btn-link">Back to Login</button>
                 </div>
             </div>
         </div>

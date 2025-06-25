@@ -1554,14 +1554,15 @@ function logout() {
   .then(() => {
     showNotification('Logged out successfully', 'success');
     resetGameState();
-    hideAuthModal();
-    showAuthModal();
+    document.querySelector('.game-container').style.display = 'none'; // Hide game UI
+    showAuthModal(); // Show login modal
   })
   .catch(err => {
     console.error('Logout failed:', err);
     showNotification('Logout failed', 'error');
   });
 }
+
 
 function getCookie(name) {
   const value = `; ${document.cookie}`;

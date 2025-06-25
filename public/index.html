@@ -109,40 +109,27 @@
             align-items: center;
         }
 
-        .game-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            padding: 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-            width: 100%;
-            flex-grow: 1;
-        }
-        
         .chess-area {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1rem;
-        width: 100%;
-        max-width: 600px;
-        margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
         }
-
 
         #board {
-        width: 100%;
-        max-width: 100%;
-        aspect-ratio: 1/1;
-        min-width: 300px;
-        min-height: 300px;
+            width: 100%;
+            max-width: 100%;
+            aspect-ratio: 1/1;
+            min-width: 300px;
+            min-height: 300px;
         }
 
-        /* Adjust piece size */
         #board img {
-        width: 90% !important;
-        height: 100% !important;
+            width: 90% !important;
+            height: 100% !important;
         }
 
         .board-controls {
@@ -153,6 +140,17 @@
             padding: 0 0.5rem;
             margin-top: 1rem;
             flex-wrap: wrap;
+        }
+
+        .game-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            flex-grow: 1;
         }
 
         .game-info-panel {
@@ -169,36 +167,6 @@
             padding: 1.5rem;
             box-shadow: var(--shadow);
             transition: var(--transition);
-        }
-
-        .game-id-container {
-            margin-bottom: 1.5rem;
-        }
-
-        .game-id-display {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            background-color: var(--light);
-            padding: 1rem;
-            border-radius: var(--border-radius);
-            border: 1px solid rgba(0, 0, 0, 0.05);
-            transition: var(--transition);
-        }
-
-        .game-id-display span {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #7F8C8D;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .game-id-display strong {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--primary);
-            letter-spacing: 1px;
         }
 
         .btn {
@@ -326,7 +294,6 @@
             flex-wrap: wrap;
             justify-content: center;
         }
-
         .time-control-card {
             display: flex;
             flex-direction: column;
@@ -336,7 +303,6 @@
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
         }
-        
         .player-info-card {
             display: flex;
             flex-direction: column;
@@ -397,12 +363,18 @@
         .profile-info {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 0.75rem;
         }
 
         .profile-item {
             display: flex;
             justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .profile-item:last-child {
+            border-bottom: none;
         }
 
         .rating-up {
@@ -795,6 +767,13 @@
             display: none;
         }
 
+        /* Game sections visibility */
+        #game-info-section,
+        #move-history-section,
+        #game-id-section {
+            display: none;
+        }
+
         /* Responsive design */
         @media (min-width: 1201px) {
             #board {
@@ -912,23 +891,6 @@
             position: relative;
             }
 
-        /* Debug overlay */
-        .debug-overlay {
-            position: relative;
-        }
-
-        .debug-overlay::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 0, 0, 0.1);
-            pointer-events: none;
-            z-index: 9999;
-        }
-
         /* Hidden elements */
         [hidden] {
             display: none !important;
@@ -975,20 +937,27 @@
             </div>
 
             <div class="game-info-panel">
-                <div class="panel-card game-controls">
-                    <div class="game-id-container">
-                        <div class="game-id-display" id="game-id-display">
-                            <i class="fas fa-key"></i>
-                            <div>
-                                <span>GAME CODE</span>
-                                <strong id="current-game-id">-----</strong>
-                            </div>
-                            <button id="copy-id" class="btn btn-control">
-                                <i class="far fa-copy"></i>
-                            </button>
+                <!-- Player Profile (shown on main screen only) -->
+                <div class="panel-card player-profile" id="player-profile-section">
+                    <h3 class="panel-title">PLAYER PROFILE</h3>
+                    <div class="profile-info">
+                        <div class="profile-item">
+                            <span>Username:</span>
+                            <strong id="profile-username">Guest</strong>
+                        </div>
+                        <div class="profile-item">
+                            <span>Rating:</span>
+                            <strong id="player-rating">400</strong>
+                        </div>
+                        <div class="profile-item">
+                            <span>Record:</span>
+                            <strong id="player-record">0-0-0</strong>
                         </div>
                     </div>
+                </div>
 
+                <!-- Game Controls (shown on main screen only) -->
+                <div class="panel-card game-controls" id="game-controls-section">
                     <div class="action-buttons">
                         <button id="create-game" class="btn btn-create">
                             <i class="fas fa-plus"></i> New Game
@@ -1009,7 +978,8 @@
                     </div>
                 </div>
 
-                <div class="panel-card time-control-card">
+                <!-- Time Control (shown on main screen only) -->
+                <div class="panel-card time-control-card" id="time-control-section">
                     <h3 class="panel-title">TIME CONTROL</h3>
                     <div class="time-controls">
                         <button class="time-option active" data-minutes="1">1+0</button>
@@ -1020,7 +990,8 @@
                     </div>
                 </div>
 
-                <div class="panel-card player-info-card">
+                <!-- Game Info (shown during game only) -->
+                <div class="panel-card player-info-card" id="game-info-section">
                     <div class="player-info">
                         <div class="player-badge" id="player-color-badge">
                             <span id="player-color">WAITING</span>
@@ -1033,9 +1004,26 @@
                     <div class="game-status" id="status">Create or join a game to begin</div>
                 </div>
 
-                <div class="panel-card move-history">
+                <!-- Move History (shown during game only) -->
+                <div class="panel-card move-history" id="move-history-section">
                     <h3 class="panel-title">MOVE HISTORY</h3>
                     <div class="moves-container" id="move-history"></div>
+                </div>
+
+                <!-- Game ID (shown during game only) -->
+                <div class="panel-card" id="game-id-section">
+                    <div class="game-id-container">
+                        <div class="game-id-display" id="game-id-display">
+                            <i class="fas fa-key"></i>
+                            <div>
+                                <span>GAME CODE</span>
+                                <strong id="current-game-id">-----</strong>
+                            </div>
+                            <button id="copy-id" class="btn btn-control">
+                                <i class="far fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

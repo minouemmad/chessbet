@@ -13,6 +13,9 @@ const cookieParser = require('cookie-parser');
 const validator = require('validator');
 const twilio = require('twilio');
 const crypto = require('crypto');
+const MAX_MOVES_PER_SECOND = 5;
+const MIN_MOVE_TIME = 200; // milliseconds
+const MAX_RATING_DIFFERENCE = 100; // for matchmaking
 
 require('dotenv').config();
 
@@ -239,10 +242,14 @@ io.use(async (socket, next) => {
 
 // Game state management
 const games = {};
+// Update the matchmakingQueue object
 const matchmakingQueue = {
   players: [],
   timeControl: 600,
   addPlayer: function(socketId, userId, rating) {
+    // Remove player if already in queue
+    this.removePlayer(socketId);
+    
     this.players.push({ socketId, userId, rating });
     this.tryMatch();
   },
@@ -251,56 +258,77 @@ const matchmakingQueue = {
   },
   tryMatch: async function() {
     if (this.players.length >= 2) {
+      // Sort by rating and try to find close matches
       this.players.sort((a, b) => a.rating - b.rating);
       
-      const player1 = this.players.shift();
-      const player2 = this.players.shift();
-      
-      const gameId = generateGameId();
-      const gameInstance = new Chess();
-      
-      games[gameId] = {
-        players: {
-          [player1.socketId]: { color: 'white', userId: player1.userId },
-          [player2.socketId]: { color: 'black', userId: player2.userId }
-        },
-        fen: gameInstance.fen(),
-        timeControl: this.timeControl,
-        whiteTime: this.timeControl,
-        blackTime: this.timeControl,
-        lastUpdate: Date.now(),
-        currentTurn: 'w',
-        status: 'active',
-        moves: []
-      };
-      
-      const user1 = await User.findById(player1.userId);
-      const user2 = await User.findById(player2.userId);
-      
-      io.to(player1.socketId).emit('matchFound', {
-        gameId,
-        color: 'white',
-        timeControl: this.timeControl,
-        opponent: user2.username,
-        opponentRating: user2.rating
-      });
-      
-      io.to(player2.socketId).emit('matchFound', {
-        gameId,
-        color: 'black',
-        timeControl: this.timeControl,
-        opponent: user1.username,
-        opponentRating: user1.rating
-      });
-      
-      io.to(gameId).emit('gameFull', {
-        color: 'white',
-        state: { fen: gameInstance.fen() },
-        timeControl: this.timeControl
-      });
-      
-      startGameTimer(gameId);
+      // Try to find the best match within rating range
+      for (let i = 0; i < this.players.length - 1; i++) {
+        const player1 = this.players[i];
+        
+        // Find the next player within rating range
+        for (let j = i + 1; j < this.players.length; j++) {
+          const player2 = this.players[j];
+          
+          if (Math.abs(player1.rating - player2.rating) <= MAX_RATING_DIFFERENCE) {
+            // Found a match - remove both players
+            this.players.splice(j, 1);
+            this.players.splice(i, 1);
+            
+            await this.createGame(player1, player2);
+            return;
+          }
+        }
+      }
     }
+  },
+  createGame: async function(player1, player2) {
+    const gameId = generateGameId();
+    const gameInstance = new Chess();
+    
+    games[gameId] = {
+      players: {
+        [player1.socketId]: { color: 'white', userId: player1.userId },
+        [player2.socketId]: { color: 'black', userId: player2.userId }
+      },
+      fen: gameInstance.fen(),
+      timeControl: this.timeControl,
+      whiteTime: this.timeControl,
+      blackTime: this.timeControl,
+      lastUpdate: Date.now(),
+      currentTurn: 'w',
+      status: 'active',
+      moves: [],
+      createdAt: Date.now()
+    };
+    
+    const [user1, user2] = await Promise.all([
+      User.findById(player1.userId),
+      User.findById(player2.userId)
+    ]);
+    
+    io.to(player1.socketId).emit('matchFound', {
+      gameId,
+      color: 'white',
+      timeControl: this.timeControl,
+      opponent: user2.username,
+      opponentRating: user2.rating
+    });
+    
+    io.to(player2.socketId).emit('matchFound', {
+      gameId,
+      color: 'black',
+      timeControl: this.timeControl,
+      opponent: user1.username,
+      opponentRating: user1.rating
+    });
+    
+    io.to(gameId).emit('gameFull', {
+      color: 'white',
+      state: { fen: gameInstance.fen() },
+      timeControl: this.timeControl
+    });
+    
+    startGameTimer(gameId);
   }
 };
 
@@ -431,28 +459,50 @@ io.on('connection', (socket) => {
     socket.emit('matchmakingStatus', { inQueue: false });
   }));
 
-  socket.on('move', wrap(async ({ gameId, from, to, promotion }, callback) => {
+  // Update the move handler with anti-cheating checks
+  socket.on('move', wrap(async ({ gameId, from, to, promotion, fen }, callback) => {
     if (!games[gameId] || games[gameId].status !== 'active' || games[gameId].locked) {
       return callback({ success: false, error: 'Game not active' });
     }
-
+    // Add state validation
+    if (fen && !validateGameState(gameId, fen)) {
+      socket.emit('cheatingWarning', { message: 'Game state mismatch' });
+      return callback({ success: false, error: 'Invalid game state' });
+    }
     const playerData = games[gameId].players[socket.id];
     if (!playerData) return callback({ success: false, error: 'Not in this game' });
     
     const playerColor = playerData.color;
     const game = new Chess(games[gameId].fen);
     
+    // Check if it's the player's turn
     if ((playerColor === 'white' && game.turn() !== 'w') || 
         (playerColor === 'black' && game.turn() !== 'b')) {
       return callback({ success: false, error: 'Not your turn' });
     }
 
-    const moveTime = Date.now() - games[gameId].lastUpdate;
-    if (moveTime < 200) {
+    // Anti-cheating: Move timing checks
+    const now = Date.now();
+    const moveTime = now - games[gameId].lastUpdate;
+    
+    // Check for too fast moves
+    if (moveTime < MIN_MOVE_TIME) {
       socket.emit('cheatingWarning', { message: 'Moving too fast' });
       return callback({ success: false, error: 'Move too fast' });
     }
+    
+    // Check for move rate limiting
+    const recentMoves = games[gameId].moves.filter(m => 
+      m.player === socket.id && 
+      now - new Date(m.timestamp).getTime() < 1000
+    );
+    
+    if (recentMoves.length >= MAX_MOVES_PER_SECOND) {
+      socket.emit('cheatingWarning', { message: 'Too many moves in short time' });
+      return callback({ success: false, error: 'Move rate limit exceeded' });
+    }
 
+    // Validate the move
     const move = game.move({ 
       from, 
       to, 
@@ -463,6 +513,7 @@ io.on('connection', (socket) => {
       return callback({ success: false, error: 'Invalid move' });
     }
 
+    // Update game state
     updateGameState(gameId, game, move);
     
     games[gameId].moves.push({
@@ -474,6 +525,7 @@ io.on('connection', (socket) => {
       player: socket.id
     });
     
+    // Broadcast the move
     io.to(gameId).emit('gameState', { 
       fen: games[gameId].fen,
       lastMove: { from, to },
@@ -481,6 +533,7 @@ io.on('connection', (socket) => {
       moveHistory: games[gameId].moves
     });
     
+    // Check for game over conditions
     checkGameOver(gameId, game);
     
     callback({ success: true });
@@ -575,6 +628,25 @@ io.on('connection', (socket) => {
     cleanupDisconnectedPlayer(socket.id);
   });
 });
+
+function validateGameState(gameId, fen) {
+  if (!games[gameId]) return false;
+  
+  try {
+    const serverGame = new Chess(games[gameId].fen);
+    const clientGame = new Chess(fen);
+    
+    // Basic validation - check if FEN matches
+    if (serverGame.fen() !== clientGame.fen()) {
+      return false;
+    }
+    
+    // More advanced validation could go here
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
 
 // Helper Functions
 function updateGameState(gameId, game, move) {

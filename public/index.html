@@ -895,6 +895,9 @@
         [hidden] {
             display: none !important;
         }
+        .hidden-section {
+        display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -991,7 +994,7 @@
                 </div>
 
                 <!-- Game Info (shown during game only) -->
-                <div class="panel-card player-info-card" id="game-info-section">
+                <div class="panel-card player-info-card hidden-section" id="game-info-section">
                     <div class="player-info">
                         <div class="player-badge" id="player-color-badge">
                             <span id="player-color">WAITING</span>
@@ -1005,13 +1008,13 @@
                 </div>
 
                 <!-- Move History (shown during game only) -->
-                <div class="panel-card move-history" id="move-history-section">
+                <div class="panel-card move-history hidden-section" id="move-history-section">
                     <h3 class="panel-title">MOVE HISTORY</h3>
                     <div class="moves-container" id="move-history"></div>
                 </div>
 
                 <!-- Game ID (shown during game only) -->
-                <div class="panel-card" id="game-id-section">
+                <div class="panel-card hidden-section" id="game-id-section">
                     <div class="game-id-container">
                         <div class="game-id-display" id="game-id-display">
                             <i class="fas fa-key"></i>

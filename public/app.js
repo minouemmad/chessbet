@@ -654,31 +654,47 @@ function onDragStart(source, piece) {
 }
 
 function onDrop(source, target) {
-  const move = game.move({
-    from: source,
-    to: target,
-    promotion: 'q'
-  });
-
-  if (move === null) {
-    showNotification('Invalid move!', 'error');
-    return 'snapback';
-  }
-  
-  if (currentGameId) {
-    socket.emit('move', {
-      gameId: currentGameId,
+  try {
+    // Validate move on client side first
+    const move = game.move({
       from: source,
       to: target,
-      promotion: 'q',
-      timestamp: Date.now()
+      promotion: 'q'
     });
+
+    if (move === null) {
+      showNotification('Invalid move!', 'error');
+      return 'snapback';
+    }
+    
+    if (currentGameId) {
+      // Add timestamp to prevent cheating
+      const timestamp = Date.now();
+      
+      // Check if it's the player's turn
+      if ((playerColor === 'w' && game.turn() !== 'b') || 
+          (playerColor === 'b' && game.turn() !== 'w')) {
+        showNotification('Not your turn!', 'error');
+        return 'snapback';
+      }
+
+      socket.emit('move', {
+        gameId: currentGameId,
+        from: source,
+        to: target,
+        promotion: 'q',
+        timestamp: timestamp
+      });
+    }
+    
+    updateStatus();
+    updateMoveHistory();
+    lastMoveTime = Date.now();
+    return true;
+  } catch (err) {
+    console.error('Move error:', err);
+    return 'snapback';
   }
-  
-  updateStatus();
-  updateMoveHistory();
-  lastMoveTime = Date.now();
-  return true;
 }
 
 function onSnapEnd() {
@@ -1287,8 +1303,15 @@ function setupAuthFormHandlers() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
-        credentials: 'include' // Important for cookies
+        credentials: 'include'
       });
+
+      // First check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(text || 'Login failed');
+      }
 
       const data = await response.json();
       
@@ -1310,7 +1333,7 @@ function setupAuthFormHandlers() {
       showNotification(error.message || 'Login failed. Please try again.', 'error');
       
       // If 401 specifically, reset form
-      if (error.message.includes('401')) {
+      if (error.message.includes('401') || error.message.includes('Incorrect')) {
         document.getElementById('login-password').value = '';
       }
     } finally {
@@ -1538,29 +1561,39 @@ function startResendTimer() {
   }, 1000);
 }
 
-function logout() {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
-  }
-  
-  // Clear both localStorage and cookies
-  localStorage.removeItem('jwt');
-  document.cookie = 'jwt=loggedout; path=/; max-age=0';
+async function logout() {
+  try {
+    if (socket) {
+      socket.disconnect();
+      socket = null;
+    }
+    
+    // Clear both localStorage and cookies
+    localStorage.removeItem('jwt');
+    document.cookie = 'jwt=loggedout; path=/; max-age=0';
 
-  fetch('/api/auth/logout', {
-    credentials: 'include'
-  })
-  .then(() => {
-    showNotification('Logged out successfully', 'success');
-    resetGameState();
-    document.querySelector('.game-container').style.display = 'none'; // Hide game UI
-    showAuthModal(); // Show login modal
-  })
-  .catch(err => {
+    const response = await fetch('/api/auth/logout', {
+      credentials: 'include'
+    });
+    
+    // Check if logout was successful
+    if (response.ok) {
+      showNotification('Logged out successfully', 'success');
+      resetGameState();
+      document.querySelector('.game-container').style.display = 'none';
+      showAuthModal();
+      
+      // Force a hard refresh to clear any state
+      setTimeout(() => {
+        window.location.reload(true);
+      }, 1000);
+    } else {
+      throw new Error('Logout failed');
+    }
+  } catch (err) {
     console.error('Logout failed:', err);
     showNotification('Logout failed', 'error');
-  });
+  }
 }
 
 

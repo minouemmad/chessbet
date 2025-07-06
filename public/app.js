@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM fully loaded');
   initChessboard();
@@ -568,31 +569,46 @@ function setupUIListeners() {
   document.getElementById('logout-btn').addEventListener('click', logout);
 }
 
+function setupTimeControls() {
+  document.querySelectorAll('.time-option').forEach(option => {
+    option.addEventListener('click', () => {
+      document.querySelectorAll('.time-option').forEach(opt => opt.classList.remove('active'));
+      option.classList.add('active');
+      const minutes = parseInt(option.dataset.minutes);
+      gameTime = minutes * 60;
+      whiteTime = gameTime;
+      blackTime = gameTime;
+      
+      // Show wager input
+      document.getElementById('wager-input-container').classList.remove('hidden-section');
+      
+      updateClocks();
+    });
+  });
+}
+
 // Game Functions
 function createGame() {
-  if (!socket) {
-    showNotification('Not connected to server', 'error');
-    return;
-  }
-
   const minutes = parseInt(document.querySelector('.time-option.active').dataset.minutes);
+  const wagerInput = document.getElementById('wager-input');
+  currentWager = wagerInput.value ? parseInt(wagerInput.value) : 0;
+  
   gameTime = minutes * 60;
   whiteTime = gameTime;
   blackTime = gameTime;
-  updateClocks();
   
   showNotification(`Creating ${minutes} minute game...`);
   
-  socket.emit('createGame', { timeControl: gameTime }, (response) => {
+  socket.emit('createGame', { 
+    timeControl: gameTime,
+    wager: currentWager
+  }, (response) => {
     if (response?.success) {
       handleRedirect({
         id: response.gameId,
         color: response.color,
         timeControl: response.timeControl
       });
-      showNotification(`Game created! ID: ${response.gameId}`);
-    } else {
-      showNotification(response?.error || 'Failed to create game', 'error');
     }
   });
 }
@@ -633,10 +649,36 @@ function joinGame() {
 }
 
 function joinMatchmaking() {
-  socket.emit('joinMatchmaking');
+  const minutes = parseInt(document.querySelector('.time-option.active').dataset.minutes);
+  const wagerInput = document.getElementById('wager-input');
+  currentWager = wagerInput.value ? parseInt(wagerInput.value) : 0;
+  
+  socket.emit('joinMatchmaking', {
+    timeControl: minutes * 60,
+    wager: currentWager
+  });
+  
   showNotification('Searching for opponent...');
-  document.getElementById('join-matchmaking').style.display = 'none';
-  document.getElementById('leave-matchmaking').style.display = 'inline-flex';
+}
+
+// Add match confirmation handler
+function handleMatchProposal(data) {
+  showConfirmModal(
+    'Match Found',
+    `Opponent: ${data.opponent.username}<br>
+    Rating: ${data.opponent.rating}<br>
+    Wager: $${data.opponentWager}<br>
+    Time Control: ${data.timeControl / 60} minutes`,
+    () => {
+      socket.emit('acceptMatch', { matchId: data.matchId });
+    },
+    () => {
+      socket.emit('declineMatch', { matchId: data.matchId });
+      showNotification('Match declined');
+    },
+    'Accept',
+    'Decline'
+  );
 }
 
 function leaveMatchmaking() {
@@ -787,8 +829,16 @@ function stopClock() {
 }
 
 function updateClocks() {
-  document.getElementById('white-clock').textContent = formatTime(whiteTime);
-  document.getElementById('black-clock').textContent = formatTime(blackTime);
+  const whiteTimeFormatted = formatTime(whiteTime);
+  const blackTimeFormatted = formatTime(blackTime);
+  
+  if (playerColor === 'w') {
+    document.getElementById('player-clock').textContent = whiteTimeFormatted;
+    document.getElementById('opponent-clock').textContent = blackTimeFormatted;
+  } else {
+    document.getElementById('player-clock').textContent = blackTimeFormatted;
+    document.getElementById('opponent-clock').textContent = whiteTimeFormatted;
+  }
 }
 
 function formatTime(seconds) {
@@ -797,6 +847,10 @@ function formatTime(seconds) {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
+let currentWager = 0;
+let opponentWager = 0;
+let opponentUsername = '';
+
 // Socket.io Handlers
 function handleRedirect(data) {
   currentGameId = data.id;
@@ -804,29 +858,36 @@ function handleRedirect(data) {
   gameTime = data.timeControl || 600;
   whiteTime = gameTime;
   blackTime = gameTime;
-  updateClocks();
   
-  // Show/hide UI elements
-  document.getElementById('flip-board').style.display = 'inline-flex';
-  document.getElementById('resign-btn').style.display = 'inline-flex';
-  document.getElementById('offer-draw').style.display = 'inline-flex';
-  document.getElementById('create-game').style.display = 'none';
-  document.getElementById('join-game').style.display = 'none';
-  document.getElementById('game-id').style.display = 'none';
-  document.getElementById('join-matchmaking').style.display = 'none';
-  document.getElementById('leave-matchmaking').style.display = 'none';
+  // Show game room UI
+  document.querySelector('.game-room-ui').classList.remove('hidden-section');
   
-  // Update player info
-  document.getElementById('player-color').textContent = data.color.toUpperCase();
+  // Hide main screen elements
+  document.getElementById('game-controls-section').classList.add('hidden-section');
+  document.getElementById('time-control-section').classList.add('hidden-section');
+  document.getElementById('player-profile-section').classList.add('hidden-section');
+  
+  // Update game ID display
   document.getElementById('current-game-id').textContent = currentGameId;
-  document.getElementById('status').textContent = playerColor === 'w' ? 'Your turn (White)' : 'Waiting for opponent...';
   
-  const badge = document.getElementById('player-color-badge');
-  badge.style.backgroundColor = data.color === 'white' ? 'white' : '#2D3436';
-  badge.style.color = data.color === 'white' ? '#2D3436' : 'white';
+  // Set player username
+  if (currentUser) {
+    document.getElementById('player-username').textContent = currentUser.username;
+  }
   
-  board.orientation(data.color);
-  updateTimeControlDisplay();
+  // Update clocks
+  updateClocks();
+}
+
+function updateOpponentInfo(opponent) {
+  if (opponent) {
+    opponentUsername = opponent.username;
+    opponentWager = opponent.wager || 0;
+    
+    document.querySelector('.opponent-username').textContent = opponentUsername;
+    document.querySelector('.opponent-details .wager-amount').textContent = `Wager: $${opponentWager}`;
+    document.getElementById('player-wager').textContent = currentWager;
+  }
 }
 
 function handleMatchFound(data) {
@@ -864,17 +925,20 @@ function handleGameFull(data) {
   gameTime = data.timeControl || 600;
   whiteTime = gameTime;
   blackTime = gameTime;
-  updateClocks();
+  
+  // Show in-game controls
+  document.getElementById('in-game-controls').classList.remove('hidden-section');
+  
+  // Update opponent info if available
+  if (data.opponent) {
+    updateOpponentInfo(data.opponent);
+  }
+  
+  // Start the clock
   startClock();
-  
-  document.getElementById('player-color').textContent = data.color.toUpperCase();
-  const badge = document.getElementById('player-color-badge');
-  badge.style.backgroundColor = data.color === 'white' ? 'white' : '#2D3436';
-  badge.style.color = data.color === 'white' ? '#2D3436' : 'white';
-  
   updateStatus();
-  updateTimeControlDisplay();
-  showNotification('Game started! Your turn: ' + (playerColor === 'w' ? 'White' : 'Black'));
+  
+  showNotification('Game started!');
 }
 
 function handleGameState(data) {

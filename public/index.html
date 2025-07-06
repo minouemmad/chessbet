@@ -168,7 +168,86 @@
             box-shadow: var(--shadow);
             transition: var(--transition);
         }
+        /* Game Room UI */
+        .game-room-ui {
+        width: 100%;
+        max-width: 600px;
+        margin-top: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        }
 
+        .opponent-info, .player-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background-color: var(--bg-secondary);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        }
+
+        .opponent-details, .player-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        }
+
+        .opponent-username, .player-username {
+        font-weight: 600;
+        }
+
+        .wager-amount {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        }
+
+        .game-id-display {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background-color: var(--bg-secondary);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        }
+
+        .player-clock, .opponent-clock {
+        font-family: 'Courier New', monospace;
+        font-size: 1.25rem;
+        font-weight: 700;
+        padding: 0.5rem 1rem;
+        border-radius: var(--border-radius);
+        }
+
+        .player-clock {
+        background-color: var(--primary);
+        color: white;
+        }
+
+        .opponent-clock {
+        background-color: var(--secondary);
+        color: white;
+        }
+
+        .game-controls {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        margin-top: 1rem;
+        }
+
+        .btn-control.small {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+        }
+
+        /* Hide elements when needed */
+        .hidden-section {
+        display: none !important;
+        }
         .btn {
             padding: 1rem 1.5rem;
             border: none;
@@ -926,6 +1005,45 @@
         <main class="game-container">
             <div class="chess-area">
                 <div id="board"></div>
+                <!-- New Game Room UI -->
+                <div class="game-room-ui hidden-section" id="game-room-ui">
+                    <!-- Opponent Info -->
+                    <div class="opponent-info" id="opponent-info">
+                    <div class="opponent-details">
+                        <span class="opponent-username">Waiting for opponent...</span>
+                        <span class="wager-amount">Wager: $0</span>
+                    </div>
+                    <div class="opponent-clock" id="opponent-clock"></div>
+                    </div>
+                    
+                    <!-- Game ID Display -->
+                    <div class="game-id-display">
+                    <span>Game ID: </span>
+                    <strong id="current-game-id">-----</strong>
+                    <button id="copy-id" class="btn btn-control small">
+                        <i class="far fa-copy"></i> Copy
+                    </button>
+                    </div>
+                    
+                    <!-- Player Info -->
+                    <div class="player-info">
+                    <div class="player-clock" id="player-clock">10:00</div>
+                    <div class="player-details">
+                        <span class="player-username" id="player-username">You</span>
+                        <span class="wager-amount">Wager: $<span id="player-wager">0</span></span>
+                    </div>
+                    </div>
+                    
+                    <!-- Game Controls (only visible when game starts) -->
+                    <div class="game-controls hidden-section" id="in-game-controls">
+                    <button id="offer-draw" class="btn btn-control">
+                        <i class="fas fa-handshake"></i> Offer Draw
+                    </button>
+                    <button id="resign-btn" class="btn btn-control btn-danger">
+                        <i class="fas fa-flag"></i> Resign
+                    </button>
+                    </div>
+                </div>
                 <div class="board-controls">
                     <button id="flip-board" class="btn btn-control" hidden>
                         <i class="fas fa-sync-alt"></i> Flip Board
@@ -983,14 +1101,19 @@
 
                 <!-- Time Control (shown on main screen only) -->
                 <div class="panel-card time-control-card" id="time-control-section">
-                    <h3 class="panel-title">TIME CONTROL</h3>
-                    <div class="time-controls">
-                        <button class="time-option active" data-minutes="1">1+0</button>
-                        <button class="time-option" data-minutes="3">3+0</button>
-                        <button class="time-option" data-minutes="5">5+0</button>
-                        <button class="time-option" data-minutes="10">10+0</button>
-                        <button class="time-option" data-minutes="15">15+10</button>
-                    </div>
+                <h3 class="panel-title">TIME CONTROL</h3>
+                <div class="time-controls">
+                    <button class="time-option active" data-minutes="1">1+0</button>
+                    <button class="time-option" data-minutes="3">3+0</button>
+                    <button class="time-option" data-minutes="5">5+0</button>
+                    <button class="time-option" data-minutes="10">10+0</button>
+                    <button class="time-option" data-minutes="15">15+10</button>
+                </div>
+                
+                <div class="wager-input hidden-section" id="wager-input-container">
+                    <label for="wager-input">Wager Amount ($)</label>
+                    <input type="number" id="wager-input" min="0" step="1" placeholder="0">
+                </div>
                 </div>
 
                 <!-- Game Info (shown during game only) -->

@@ -182,7 +182,8 @@ const gameSchema = new mongoose.Schema({
     username: String,
     color: String,
     rating: Number,
-    ratingChange: Number
+    ratingChange: Number,
+    wager: Number
   }],
   moves: [{
     from: String,
@@ -198,7 +199,11 @@ const gameSchema = new mongoose.Schema({
   finalFen: String,
   createdAt: { type: Date, default: Date.now },
   completedAt: Date,
-  pgn: String
+  pgn: String,
+  wagers: {
+    white: Number,
+    black: Number
+  }
 });
 
 const User = mongoose.model('User', userSchema);
@@ -245,92 +250,195 @@ const games = {};
 // Update the matchmakingQueue object
 const matchmakingQueue = {
   players: [],
+  pendingMatches: {},
   timeControl: 600,
-  addPlayer: function(socketId, userId, rating) {
-    // Remove player if already in queue
-    this.removePlayer(socketId);
+
+  addPlayer: function(socket, timeControl, wager) {
+    this.removePlayer(socket.id);
     
-    this.players.push({ socketId, userId, rating });
-    this.tryMatch();
+    const playerData = {
+      socketId: socket.id,
+      userId: socket.user._id,
+      rating: socket.user.rating,
+      timeControl,
+      wager,
+      user: {
+        username: socket.user.username,
+        rating: socket.user.rating
+      },
+      timestamp: Date.now()
+    };
+    
+    // Try to find compatible opponent
+    for (let i = 0; i < this.players.length; i++) {
+      const opponent = this.players[i];
+      
+      if (opponent.timeControl === timeControl && 
+          Math.abs(opponent.wager - wager) <= 10 &&
+          opponent.userId.toString() !== playerData.userId.toString()) {
+        
+        const matchId = generateGameId();
+        this.pendingMatches[matchId] = {
+          player1: opponent,
+          player2: playerData,
+          timeControl,
+          createdAt: Date.now()
+        };
+        
+        this.players.splice(i, 1);
+        
+        socket.emit('matchProposal', {
+          matchId,
+          opponent: opponent.user,
+          opponentWager: opponent.wager,
+          timeControl,
+          rating: opponent.rating
+        });
+        
+        io.to(opponent.socketId).emit('matchProposal', {
+          matchId,
+          opponent: socket.user,
+          opponentWager: wager,
+          timeControl,
+          rating: socket.user.rating
+        });
+        
+        setTimeout(() => {
+          if (this.pendingMatches[matchId]) {
+            delete this.pendingMatches[matchId];
+            this.addPlayer(socket, timeControl, wager);
+            if (io.sockets.sockets.get(opponent.socketId)) {
+              io.to(opponent.socketId).emit('matchExpired');
+            }
+          }
+        }, 30000);
+        return;
+      }
+    }
+    
+    this.players.push(playerData);
+    socket.emit('matchmakingStatus', { 
+      inQueue: true,
+      queueSize: this.players.length
+    });
   },
+
   removePlayer: function(socketId) {
     this.players = this.players.filter(p => p.socketId !== socketId);
-  },
-  tryMatch: async function() {
-    if (this.players.length >= 2) {
-      // Sort by rating and try to find close matches
-      this.players.sort((a, b) => a.rating - b.rating);
-      
-      // Try to find the best match within rating range
-      for (let i = 0; i < this.players.length - 1; i++) {
-        const player1 = this.players[i];
-        
-        // Find the next player within rating range
-        for (let j = i + 1; j < this.players.length; j++) {
-          const player2 = this.players[j];
-          
-          if (Math.abs(player1.rating - player2.rating) <= MAX_RATING_DIFFERENCE) {
-            // Found a match - remove both players
-            this.players.splice(j, 1);
-            this.players.splice(i, 1);
-            
-            await this.createGame(player1, player2);
-            return;
-          }
-        }
+    
+    for (const matchId in this.pendingMatches) {
+      const match = this.pendingMatches[matchId];
+      if (match.player1.socketId === socketId || 
+          match.player2.socketId === socketId) {
+        this.handleDeclinedMatch(matchId);
+        break;
       }
     }
   },
-  createGame: async function(player1, player2) {
+
+  handleAcceptedMatch: function(matchId) {
+    const match = this.pendingMatches[matchId];
+    if (!match) return;
+    
+    const { player1, player2, timeControl } = match;
     const gameId = generateGameId();
     const gameInstance = new Chess();
     
     games[gameId] = {
       players: {
-        [player1.socketId]: { color: 'white', userId: player1.userId },
-        [player2.socketId]: { color: 'black', userId: player2.userId }
+        [player1.socketId]: { 
+          color: 'white', 
+          userId: player1.userId,
+          username: player1.user.username,
+          wager: player1.wager
+        },
+        [player2.socketId]: { 
+          color: 'black', 
+          userId: player2.userId,
+          username: player2.user.username,
+          wager: player2.wager
+        }
       },
       fen: gameInstance.fen(),
-      timeControl: this.timeControl,
-      whiteTime: this.timeControl,
-      blackTime: this.timeControl,
+      timeControl,
+      whiteTime: timeControl,
+      blackTime: timeControl,
       lastUpdate: Date.now(),
       currentTurn: 'w',
       status: 'active',
       moves: [],
-      createdAt: Date.now()
+      wagers: {
+        white: player1.wager,
+        black: player2.wager
+      }
     };
-    
-    const [user1, user2] = await Promise.all([
-      User.findById(player1.userId),
-      User.findById(player2.userId)
-    ]);
     
     io.to(player1.socketId).emit('matchFound', {
       gameId,
       color: 'white',
-      timeControl: this.timeControl,
-      opponent: user2.username,
-      opponentRating: user2.rating
+      timeControl,
+      opponent: player2.user,
+      opponentWager: player2.wager
     });
     
     io.to(player2.socketId).emit('matchFound', {
       gameId,
       color: 'black',
-      timeControl: this.timeControl,
-      opponent: user1.username,
-      opponentRating: user1.rating
+      timeControl,
+      opponent: player1.user,
+      opponentWager: player1.wager
     });
     
     io.to(gameId).emit('gameFull', {
       color: 'white',
       state: { fen: gameInstance.fen() },
-      timeControl: this.timeControl
+      timeControl,
+      opponent: player2.user,
+      wagers: {
+        white: player1.wager,
+        black: player2.wager
+      }
     });
     
     startGameTimer(gameId);
+    delete this.pendingMatches[matchId];
+  },
+
+  handleDeclinedMatch: function(matchId) {
+    const match = this.pendingMatches[matchId];
+    if (!match) return;
+    
+    const { player1, player2 } = match;
+    
+    if (io.sockets.sockets.get(player1.socketId)) {
+      io.to(player1.socketId).emit('matchDeclined');
+      this.addPlayer(io.sockets.sockets.get(player1.socketId), 
+        player1.timeControl, 
+        player1.wager);
+    }
+    
+    if (io.sockets.sockets.get(player2.socketId)) {
+      io.to(player2.socketId).emit('matchDeclined');
+      this.addPlayer(io.sockets.sockets.get(player2.socketId), 
+        player2.timeControl, 
+        player2.wager);
+    }
+    
+    delete this.pendingMatches[matchId];
+  },
+
+  cleanup: function() {
+    const now = Date.now();
+    this.players = this.players.filter(p => now - p.timestamp < 1800000);
+    for (const matchId in this.pendingMatches) {
+      if (now - this.pendingMatches[matchId].createdAt > 30000) {
+        this.handleDeclinedMatch(matchId);
+      }
+    }
   }
 };
+
+setInterval(() => matchmakingQueue.cleanup(), 300000);
 
 // Socket.IO connection handler
 io.on('connection', (socket) => {
@@ -448,9 +556,8 @@ io.on('connection', (socket) => {
     startGameTimer(gameId);
   }));
 
-  socket.on('joinMatchmaking', wrap(async (_, callback) => {
-    matchmakingQueue.addPlayer(socket.id, socket.user._id, socket.user.rating);
-    socket.emit('matchmakingStatus', { inQueue: true });
+  socket.on('joinMatchmaking', wrap(async ({ timeControl, wager }, callback) => {
+    matchmakingQueue.addPlayer(socket, timeControl, wager || 0);
     callback({ success: true });
   }));
 
@@ -617,6 +724,14 @@ io.on('connection', (socket) => {
     }
   }));
 
+  socket.on('acceptMatch', wrap(({ matchId }) => {
+    matchmakingQueue.handleAcceptedMatch(matchId);
+  }));
+
+  socket.on('declineMatch', wrap(({ matchId }) => {
+    matchmakingQueue.handleDeclinedMatch(matchId);
+  }));
+
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}, User: ${socket.user.username}`);
     matchmakingQueue.removePlayer(socket.id);
@@ -627,6 +742,7 @@ io.on('connection', (socket) => {
     console.error('Socket error:', error);
     cleanupDisconnectedPlayer(socket.id);
   });
+
 });
 
 function validateGameState(gameId, fen) {
@@ -823,10 +939,11 @@ async function handleGameCompletion(gameId, result) {
       gameId,
       players: playerIds.map(id => ({
         userId: gameData.players[id].userId,
-        username: gameData.players[id].color === 'white' ? whitePlayer.username : blackPlayer.username,
+        username: gameData.players[id].username,
         color: gameData.players[id].color,
         rating: gameData.players[id].color === 'white' ? whitePlayer.rating : blackPlayer.rating,
-        ratingChange: gameData.players[id].color === 'white' ? whiteRatingChange : blackRatingChange
+        ratingChange: gameData.players[id].color === 'white' ? whiteRatingChange : blackRatingChange,
+        wager: gameData.players[id].wager
       })),
       moves: gameData.moves || [],
       timeControl: gameData.timeControl,
@@ -835,7 +952,8 @@ async function handleGameCompletion(gameId, result) {
       reason: result.reason,
       finalFen: gameData.fen,
       pgn: gameData.pgn,
-      completedAt: new Date()
+      completedAt: new Date(),
+      wagers: gameData.wagers
     });
     
     await gameRecord.save();
